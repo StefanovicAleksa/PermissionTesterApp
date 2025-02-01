@@ -1,7 +1,7 @@
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:permission_tester_app/core/constants/app_constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_tester_app/features/camera/presentation/cubit/camera_state.dart';
 
 class CameraCubit extends Cubit<CameraState> {
@@ -10,66 +10,65 @@ class CameraCubit extends Cubit<CameraState> {
   }
 
   Future<void> _init() async {
-    emit(state.copyWith(isLoading: true));
-    final cameras = await availableCameras();
-    emit(state.copyWith(
-      cameras: cameras,
-      isLoading: false,
-    ));
-    checkPermission();
-  }
-
-  Future<void> checkPermission() async {
-    final status = await Permission.camera.status;
-    _handlePermissionStatus(status);
-  }
-
-  Future<void> requestPermission() async {
-    final status = await Permission.camera.request();
-    _handlePermissionStatus(status);
-  }
-
-  void _handlePermissionStatus(PermissionStatus status) {
-    switch (status) {
-      case PermissionStatus.granted:
+    emit(state.copyWith(status: CameraStatus.loading));
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
         emit(state.copyWith(
-          permissionStatus: CameraPermissionStatus.granted,
-          errorMessage: null,
+          status: CameraStatus.notAvailable,
+          errorMessage: 'No cameras available',
         ));
-        _initializeCamera();
-        break;
-      case PermissionStatus.denied:
-        emit(state.copyWith(
-          permissionStatus: CameraPermissionStatus.denied,
-          errorMessage: AppConstants.cameraPermissionDenied,
-        ));
-        break;
-      case PermissionStatus.permanentlyDenied:
-        emit(state.copyWith(
-          permissionStatus: CameraPermissionStatus.permanentlyDenied,
-          errorMessage: AppConstants.cameraPermissionPermanentlyDenied,
-        ));
-        break;
-      default:
-        break;
+        return;
+      }
+      
+      emit(state.copyWith(
+        cameras: cameras,
+        status: CameraStatus.initial,
+      ));
+      
+      await _initializeCamera();
+    } catch (e) {
+      emit(state.copyWith(
+        status: CameraStatus.error,
+        errorMessage: 'Failed to initialize camera: ${e.toString()}',
+      ));
     }
   }
 
   Future<void> _initializeCamera() async {
     if (state.cameras.isEmpty) return;
 
-    final controller = CameraController(
-      state.cameras[0],
-      ResolutionPreset.max,
-    );
-
     try {
+      final controller = CameraController(
+        state.cameras[0],
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
       await controller.initialize();
-      emit(state.copyWith(controller: controller));
+      emit(state.copyWith(
+        controller: controller,
+        status: CameraStatus.ready,
+      ));
     } catch (e) {
       emit(state.copyWith(
+        status: CameraStatus.error,
         errorMessage: 'Failed to initialize camera: ${e.toString()}',
       ));
+    }
+  }
+
+  Future<void> openSettings() async {
+    if (Platform.isIOS) {
+      const url = 'app-settings:';
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      }
+    } else if (Platform.isAndroid) {
+      const url = 'package:com.android.settings';
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      }
     }
   }
 

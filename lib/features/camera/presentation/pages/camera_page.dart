@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:permission_tester_app/features/camera/presentation/cubit/camera_cubit.dart';
 import 'package:permission_tester_app/features/camera/presentation/cubit/camera_state.dart';
 import 'package:permission_tester_app/features/camera/presentation/widgets/camera_preview_widget.dart';
@@ -39,12 +37,11 @@ class CameraView extends StatelessWidget {
           }
         },
         builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          switch (state.permissionStatus) {
-            case CameraPermissionStatus.granted:
+          switch (state.status) {
+            case CameraStatus.loading:
+              return const Center(child: CircularProgressIndicator());
+              
+            case CameraStatus.ready:
               if (state.controller != null && 
                   state.controller!.value.isInitialized) {
                 return CameraPreviewWidget(
@@ -66,7 +63,7 @@ class CameraView extends StatelessWidget {
               }
               return const Center(child: CircularProgressIndicator());
 
-            case CameraPermissionStatus.permanentlyDenied:
+            case CameraStatus.error:
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -74,21 +71,21 @@ class CameraView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(
-                        Icons.no_photography,
+                        Icons.error_outline,
                         size: 64,
-                        color: Colors.grey,
+                        color: Colors.red,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        Platform.isIOS
-                            ? 'Camera access is restricted. Please enable it in Settings.'
-                            : 'Camera permission is permanently denied.',
+                        'Camera access is not available. Please check your settings.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
-                        onPressed: () => openAppSettings(),
+                        onPressed: () => context
+                            .read<CameraCubit>()
+                            .openSettings(),
                         icon: const Icon(Icons.settings),
                         label: const Text('Open Settings'),
                       ),
@@ -97,8 +94,12 @@ class CameraView extends StatelessWidget {
                 ),
               );
 
-            case CameraPermissionStatus.denied:
-            case CameraPermissionStatus.initial:
+            case CameraStatus.notAvailable:
+              return const Center(
+                child: Text('No camera available on this device'),
+              );
+
+            case CameraStatus.initial:
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -112,7 +113,7 @@ class CameraView extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Camera permission is required to use this feature',
+                        'Please grant camera access in your device settings',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
@@ -120,9 +121,9 @@ class CameraView extends StatelessWidget {
                       ElevatedButton.icon(
                         onPressed: () => context
                             .read<CameraCubit>()
-                            .requestPermission(),
-                        icon: const Icon(Icons.check_circle),
-                        label: const Text('Grant Permission'),
+                            .openSettings(),
+                        icon: const Icon(Icons.settings),
+                        label: const Text('Open Settings'),
                       ),
                     ],
                   ),

@@ -1,38 +1,35 @@
 import 'package:equatable/equatable.dart';
 import 'package:camera/camera.dart';
 
-enum CameraPermissionStatus {
+enum CameraStatus {
   initial,
-  granted,
-  denied,
-  permanentlyDenied,
+  loading,
+  ready,
+  error,
+  notAvailable
 }
 
 class CameraState extends Equatable {
-  final CameraPermissionStatus permissionStatus;
-  final bool isLoading;
+  final CameraStatus status;
   final String? errorMessage;
   final List<CameraDescription> cameras;
   final CameraController? controller;
 
   const CameraState({
-    this.permissionStatus = CameraPermissionStatus.initial,
-    this.isLoading = false,
+    this.status = CameraStatus.initial,
     this.errorMessage,
     this.cameras = const [],
     this.controller,
   });
 
   CameraState copyWith({
-    CameraPermissionStatus? permissionStatus,
-    bool? isLoading,
+    CameraStatus? status,
     String? errorMessage,
     List<CameraDescription>? cameras,
     CameraController? controller,
   }) {
     return CameraState(
-      permissionStatus: permissionStatus ?? this.permissionStatus,
-      isLoading: isLoading ?? this.isLoading,
+      status: status ?? this.status,
       errorMessage: errorMessage,
       cameras: cameras ?? this.cameras,
       controller: controller ?? this.controller,
@@ -41,8 +38,7 @@ class CameraState extends Equatable {
 
   @override
   List<Object?> get props => [
-        permissionStatus,
-        isLoading,
+        status,
         errorMessage,
         cameras,
         controller,
